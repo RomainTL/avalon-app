@@ -6,7 +6,7 @@ Avoir docker-compose d'installer...
 
 1. Importer l'image docker de la bdd: docker pull rethinkdb
 2. Construire l'image docker de l'app: docker build -t avalon-pkg .
-3. Lancer les containers: docker-compose up
+3. Lancer les containers: docker-compose up -d
 
 ---> http://localhost/
 
