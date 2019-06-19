@@ -9,7 +9,7 @@ services:
     volumes:
     - AVALON-RETHINKDB-DATA:/data
   api:
-    image: avalon-pkg
+    image: avalon-pkg:latest
     ports:
       - "80:5000"
     environment:

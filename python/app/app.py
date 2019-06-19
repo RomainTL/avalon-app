@@ -8,6 +8,8 @@ from flask import Flask
 import avalon
 from avalon.avalon_pylib import app
 
+from flask_httpauth import HTTPBasicAuth
+auth = HTTPBasicAuth()
 
 if __name__ == '__main__':
 

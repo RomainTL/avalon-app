@@ -1,6 +1,6 @@
 FROM ubuntu:18.04
 
-MAINTAINER Romain Thierry-Laumont "romain.thierry@safety-line.fr"
+MAINTAINER Romain Thierry-Laumont "romain.121@hotmail.fr"
 
 ENV WEBSERVICEHOST 0.0.0.0
 ENV WEBSERVICEPORT 5000

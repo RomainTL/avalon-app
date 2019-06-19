@@ -6,11 +6,23 @@
 import os
 from random import shuffle, choice
 
-from flask import Flask, jsonify, make_response, request, abort, send_file, Response
+from flask import Flask, jsonify, make_response, request, abort, send_file, Response, render_template
+from werkzeug.security import generate_password_hash, check_password_hash
+
+from app import auth
 import rethinkdb as r
 
 
 app = Flask(__name__)
+
+users = {"lala": generate_password_hash("hello"),
+         "lolo": generate_password_hash("bye")}
+
+@auth.verify_password
+def verify_password(username, password):
+    if username in users:
+        return check_password_hash(users.get(username), password)
+    return False
 
 
 def bdd_get_value(ident, key):
@@ -85,6 +97,7 @@ def restart_bdd():
 
 
 @app.route('/view/<name>', methods=['GET'])
+@auth.login_required
 def view_(name):
     """This function gives a table depending on the name"""
     response = {name: []}
@@ -97,9 +110,10 @@ def view_(name):
 
 
 @app.route('/new_game', methods=['PUT'])
+@auth.login_required
 def new_game():
     """This functions inserts a new game in the database and returns the id created"""
-    with r.RethinkDB().connect(host='rethinkdb', port=28015) as conn:
+    with r.RethinkDB().connect(host='localhost', port=28015) as conn:
         insert = r.RethinkDB().table("games").insert([
                     {"players": [],
                      "rules": {}}]).run(conn)
@@ -358,4 +372,9 @@ def post_mp3():
     # response.headers.set('Content-Disposition', 'attachment', filename='%s.jpg' % pid)
 
     return send_file("./data/roles.mp3", attachment_filename='roles.mp3', mimetype='audio/mpeg')
+
+
+if __name__ == '__main__':
+
+    app.run(host='0.0.0.0', port=5000)
 
