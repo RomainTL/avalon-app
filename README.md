@@ -1,3 +1,10 @@
+Installer miniconda3
+
+pip install -r requirements.txt
+
+
+
+
 
 Avoir docker-compose d'installer...
 

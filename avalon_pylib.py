@@ -6,19 +6,22 @@
 import os
 from random import shuffle, choice
 
-from flask import Flask, jsonify, make_response, request, abort, send_file, Response, render_template
+from flask import Blueprint, Flask, jsonify, make_response, request, abort, send_file, Response, render_template
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app import auth
+# from app import auth
 import rethinkdb as r
 
 
-app = Flask(__name__)
+avalon_blueprint = Blueprint('avalon', __name__)
+
+# host = "localhost"
+# port = 28015
 
 users = {"mathieu": generate_password_hash("lebeaugosse"),
          "romain": generate_password_hash("lala")}
 
-@auth.verify_password
+# @auth.verify_password
 def verify_password(username, password):
     if username in users:
         return check_password_hash(users.get(username), password)
@@ -28,14 +31,14 @@ def verify_password(username, password):
 def bdd_get_value(ident, key):
     """This function finds the key's value in the bdd"""
 
-    with r.RethinkDB().connect(host='rethinkdb', port=28015) as conn:
+    with r.RethinkDB().connect(host=host, port=port) as conn:
 
         return r.RethinkDB().table("games").get(ident)[key].run(conn)
 
 
 def bdd_get_players_value(ident, ind_player, key):
     """This function finds the key's value in the bdd of players"""
-    with r.RethinkDB().connect(host='rethinkdb', port=28015) as conn:
+    with r.RethinkDB().connect(host=host, port=port) as conn:
 
         return r.RethinkDB().table("games").get(ident)['players'].filter({"ind_player": ind_player}).run(conn)[0][key]
 
@@ -43,21 +46,21 @@ def bdd_get_players_value(ident, ind_player, key):
 def bdd_update_value(ident, key, value):
     """This function updates the key's value in the bdd"""
 
-    with r.RethinkDB().connect(host='rethinkdb', port=28015) as conn:
+    with r.RethinkDB().connect(host=host, port=port) as conn:
 
         return r.RethinkDB().table("games").get(ident).update({key: value}).run(conn)
 
 
-@app.errorhandler(404)
-def not_found(error):
-    return make_response(jsonify({'error': 'Not found'}), 404)
+@avalon_blueprint.route('/test_lala', methods=['GET'])
+def test_lala():
+    return jsonify({'test': 'lala'})
 
 
-@app.route('/restart_bdd', methods=['POST'])
+@avalon_blueprint.route('/restart_bdd', methods=['POST'])
 def restart_bdd():
     """This function deletes all tables in the post request and initializes them"""
 
-    with r.RethinkDB().connect(host='rethinkdb', port=28015) as conn:
+    with r.RethinkDB().connect(host=host, port=port) as conn:
         for key in request.json.values():
             if key in r.RethinkDB().db('test').table_list().run(conn):
                 r.RethinkDB().table_drop(key).run(conn)
@@ -97,12 +100,13 @@ def restart_bdd():
     return jsonify({"request": "succeeded"})
 
 
-@app.route('/view/<name>', methods=['GET'])
-@auth.login_required
+@avalon_blueprint.route('/view/<name>', methods=['GET'])
+# @auth.login_required
 def view_(name):
     """This function gives a table depending on the name"""
     response = {name: []}
-    with r.RethinkDB().connect(host='rethinkdb', port=28015) as conn:
+    print(host, port)
+    with r.RethinkDB().connect(host=host, port=port) as conn:
         cursor = r.RethinkDB().table(name).run(conn)
         for document in cursor:
             response[name].append(document)
@@ -110,11 +114,11 @@ def view_(name):
     return jsonify(response)
 
 
-@app.route('/new_game', methods=['PUT'])
-@auth.login_required
+@avalon_blueprint.route('/new_game', methods=['PUT'])
+# @auth.login_required
 def new_game():
     """This functions inserts a new game in the database and returns the id created"""
-    with r.RethinkDB().connect(host='localhost', port=28015) as conn:
+    with r.RethinkDB().connect(host=host, port=port) as conn:
         insert = r.RethinkDB().table("games").insert([
                     {"players": [],
                      "rules": {}}]).run(conn)
@@ -129,10 +133,10 @@ def roles_and_players(dict_names_roles, max_red, max_blue):
                         - 4. Too many red in the game (or too many blue in the game, checked but impossible)"""
 
     if "Morgan" in dict_names_roles["roles"] and "Perceval" not in dict_names_roles["roles"]:
-        print "ERROR !!! Morgan is in the game but Perceval is not"
+        print("ERROR !!! Morgan is in the game but Perceval is not")
 
     if "Perceval" in dict_names_roles["roles"] and "Morgan" not in dict_names_roles["roles"]:
-        print "ERROR !!! Perceval is in the game but Morgan is not"
+        print("ERROR !!! Perceval is in the game but Morgan is not")
 
     nb_red, nb_blue = 1, 1
     list_roles = ["Merlin", "Assassin"]
@@ -144,14 +148,14 @@ def roles_and_players(dict_names_roles, max_red, max_blue):
             nb_blue += 1
             list_roles.append(role)
         else:
-            print "ERROR !!! can't add this role: "+str(role)
+            print("ERROR !!! can't add this role: "+str(role))
 
     if nb_red <= max_red and nb_blue <= max_blue:
         list_roles.extend(["Red"]*(max_red-nb_red))
         list_roles.extend(["Blue"]*(max_blue-nb_blue))
 
     else:
-        print "ERROR !!! Too many red or blue"
+        print("ERROR !!! Too many red or blue")
 
     shuffle(list_roles)
 
@@ -165,11 +169,11 @@ def roles_and_players(dict_names_roles, max_red, max_blue):
     return list_players
 
 
-@app.route('/<ident>/add_roles', methods=['POST'])
+@avalon_blueprint.route('/<ident>/add_roles', methods=['POST'])
 def add_roles(ident):
     """This functions adds rules and roles to players randomly"""
 
-    with r.RethinkDB().connect(host='rethinkdb', port=28015) as conn:
+    with r.RethinkDB().connect(host=host, port=port) as conn:
 
         # add rules
         rules = list(r.RethinkDB().table("rules").filter({"nb_player": len(request.json["names"])}).run(conn))[0]
@@ -187,7 +191,7 @@ def add_roles(ident):
     return jsonify({"players": bdd_get_value(ident, "players")})
 
 
-@app.route('/<ident>/get/<table>/<key>', methods=['POST'])
+@avalon_blueprint.route('/<ident>/get/<table>/<key>', methods=['POST'])
 def get(ident, table, key):
     """This function finds the key's value depending of the table in the bdd"""
 
@@ -197,11 +201,11 @@ def get(ident, table, key):
 #######################################################################################################################
 #######################################################################################################################
 
-@app.route('/<ident>/new_turn', methods=['GET'])
+@avalon_blueprint.route('/<ident>/new_turn', methods=['GET'])
 def new_turn(ident):
     """This function updates the bdd with a new turn"""
 
-    with r.RethinkDB().connect(host='rethinkdb', port=28015) as conn:
+    with r.RethinkDB().connect(host=host, port=port) as conn:
 
         nb_player = len(bdd_get_value(ident, "players"))-1
 
@@ -229,11 +233,11 @@ def new_turn(ident):
                     "nb_failed_mission": nb_failed_mission, "nb_in_mission": nb_in_mission})
 
 
-@app.route('/<ident>/new_mission', methods=['GET'])
+@avalon_blueprint.route('/<ident>/new_mission', methods=['GET'])
 def new_mission(ident):
     """This function updates the bdd with a new vote"""
 
-    with r.RethinkDB().connect(host='rethinkdb', port=28015) as conn:
+    with r.RethinkDB().connect(host=host, port=port) as conn:
 
         nb_player = len(bdd_get_value(ident, "players"))-1
 
@@ -261,7 +265,7 @@ def new_mission(ident):
                     "nb_failed_mission": nb_failed_mission, "nb_in_mission": nb_in_mission})
 
 
-@app.route('/<ident>/vote', methods=['POST'])
+@avalon_blueprint.route('/<ident>/vote', methods=['POST'])
 def vote(ident):
     """This function gives the answer of a vote"""
 
@@ -285,7 +289,7 @@ def vote(ident):
     return jsonify({"players": bdd_get_value(ident, "players")})
 
 
-@app.route('/<ident>/shuffle_vote', methods=['POST'])
+@avalon_blueprint.route('/<ident>/shuffle_vote', methods=['POST'])
 def shuffle_vote(ident):
     """This function shuffles vote"""
 
@@ -347,14 +351,15 @@ def create_mp3(list_roles):
         str_command += "data/"+list_to_merge[i]+" "
     str_command += " > data/roles.mp3"
     os.system(str_command)
-    print "\n\n"
+    print("\n\n")
     mp3_file = open('./data/roles.mp3', 'rb')
-    print mp3_file
+    print(mp3_file)
     os.system("rm -f /data/roles.mp3")
 
     return mp3_file
 
-@app.route("/<ident>/mp3_2")
+
+@avalon_blueprint.route("/<ident>/mp3_2")
 def streamwav():
     def generate():
         with open("data/roles.mp3", "rb") as fwav:
@@ -364,18 +369,13 @@ def streamwav():
                 data = fwav.read(1024)
     return Response(generate(), mimetype="audio/mpeg") # mimetype="audio/x-mp3", mimetype="audio/mp3"
 
-@app.route('/<ident>/mp3', methods=['POST'])
+
+@avalon_blueprint.route('/<ident>/mp3', methods=['POST'])
 def post_mp3():
     mp3_file = create_mp3(request.json["roles"])
-    print mp3_file
+    print(mp3_file)
     # response = make_response(mp3_file)
     # response.headers.set('Content-Type', 'audio/mpeg')
     # response.headers.set('Content-Disposition', 'attachment', filename='%s.jpg' % pid)
 
     return send_file("./data/roles.mp3", attachment_filename='roles.mp3', mimetype='audio/mpeg')
-
-
-if __name__ == '__main__':
-
-    app.run(host='0.0.0.0', port=5000)
-
