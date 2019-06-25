@@ -15,8 +15,8 @@ import rethinkdb as r
 
 app = Flask(__name__)
 
-users = {"lala": generate_password_hash("hello"),
-         "lolo": generate_password_hash("bye")}
+users = {"mathieu": generate_password_hash("lebeaugosse"),
+         "romain": generate_password_hash("lala")}
 
 @auth.verify_password
 def verify_password(username, password):
@@ -42,6 +42,7 @@ def bdd_get_players_value(ident, ind_player, key):
 
 def bdd_update_value(ident, key, value):
     """This function updates the key's value in the bdd"""
+
     with r.RethinkDB().connect(host='rethinkdb', port=28015) as conn:
 
         return r.RethinkDB().table("games").get(ident).update({key: value}).run(conn)
