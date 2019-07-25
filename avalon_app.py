@@ -16,13 +16,8 @@ app = Flask(__name__)
 CORS(app)
 
 auth = HTTPBasicAuth()
+
 app.register_blueprint(avalon_blueprint)
-
-
-
-# @app.route('/test_lala', methods=['GET'])
-# def test_lala():
-#     return jsonify({'test': 'lala'})
 
 
 if __name__ == '__main__':

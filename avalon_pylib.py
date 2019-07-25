@@ -14,6 +14,7 @@ import rethinkdb as r
 
 
 avalon_blueprint = Blueprint('avalon', __name__)
+auth_blueprint = Blueprint('auth', __name__)
 
 host = "rethinkdb"
 port = 28015
@@ -23,18 +24,65 @@ users = {"mathieu": generate_password_hash("lebeaugosse"),
 
 
 
-# # @auth.verify_password
+# @auth_blueprint.verify_password
 # def verify_password(username, password):
 #     if username in users:
 #         return check_password_hash(users.get(username), password)
 #     return False
 
 
-# def bdd_get_players_value(ident, ind_player, key):
-#     """This function finds the key's value in the bdd of players"""
-#     with r.RethinkDB().connect(host=host, port=port) as conn:
 
-#         return r.RethinkDB().table("games").get(ident)['players'].filter({"ind_player": ind_player}).run(conn)[0][key]
+
+
+@avalon_blueprint.route('/restart_bdd', methods=['PUT'])
+def restart_bdd():
+    """
+    This function deletes all tables in the post request and initializes them
+        - method: PUT
+            - route: /restart_bdd
+            - example payload: {"table1": "rules", "table2": "games"}
+    """
+
+    with r.RethinkDB().connect(host=host, port=port) as conn:
+        for key in request.json.values():
+            if key in r.RethinkDB().db('test').table_list().run(conn):
+                r.RethinkDB().table_drop(key).run(conn)
+
+            # initialize table rules
+            r.RethinkDB().table_create(key).run(conn)
+
+    return jsonify({"request": "succeeded"})
+
+
+# @auth_blueprint.login_required
+@avalon_blueprint.route('/view/<name>', methods=['GET'])
+def view(name):
+    """
+    This function gives a table depending on the input name
+        - method: GET
+            - route: /view/rules or /view/games
+            - example payload:
+    """
+    response = {name: []}
+    with r.RethinkDB().connect(host=host, port=port) as conn:
+        cursor = r.RethinkDB().table(name).run(conn)
+        for document in cursor:
+            response[name].append(document)
+
+    return jsonify(response)
+
+
+# # @auth.login_required
+# def new_game():
+#     """This functions inserts a new game in the database and returns the id created"""
+
+#     with r.RethinkDB().connect(host=host, port=port) as conn:
+#         insert = r.RethinkDB().table("games").insert([
+#                     {"players": [],
+#                      "rules": {}}]).run(conn)
+#     return insert["generated_keys"][0]
+
+
 
 
 def bdd_get_value(table, ident, key):
@@ -53,50 +101,6 @@ def bdd_update_value(table, ident, key, value):
 
         return r.RethinkDB().table(table).get(ident).update({key: value}).run(conn)
 
-
-# @avalon_blueprint.route('/test_lala', methods=['GET'])
-# def test_lala():
-#     return jsonify({'test': 'lala'})
-
-
-@avalon_blueprint.route('/restart_bdd', methods=['PUT'])
-def restart_bdd():
-    """This function deletes all tables in the post request and initializes them"""
-
-    with r.RethinkDB().connect(host=host, port=port) as conn:
-        for key in request.json.values():
-            if key in r.RethinkDB().db('test').table_list().run(conn):
-                r.RethinkDB().table_drop(key).run(conn)
-
-            # nitialize table rules
-            r.RethinkDB().table_create(key).run(conn)
-
-    return jsonify({"request": "succeeded"})
-
-
-@avalon_blueprint.route('/view/<name>', methods=['GET'])
-# @auth.login_required
-def view(name):
-    """This function gives a table depending on the name"""
-    response = {name: []}
-    print(host, port)
-    with r.RethinkDB().connect(host=host, port=port) as conn:
-        cursor = r.RethinkDB().table(name).run(conn)
-        for document in cursor:
-            response[name].append(document)
-
-    return jsonify(response)
-
-
-# # @auth.login_required
-# def new_game():
-#     """This functions inserts a new game in the database and returns the id created"""
-
-#     with r.RethinkDB().connect(host=host, port=port) as conn:
-#         insert = r.RethinkDB().table("games").insert([
-#                     {"players": [],
-#                      "rules": {}}]).run(conn)
-#     return insert["generated_keys"][0]
 
 
 def roles_and_players(dict_names_roles, max_red, max_blue):
@@ -151,7 +155,7 @@ def add_roles():
         insert = r.RethinkDB().table("games").insert([
                     {"players": [],
                      "rules": {}}]).run(conn)
-    
+
         id_game = insert["generated_keys"][0]
 
         # add rules
@@ -186,6 +190,12 @@ def add_roles():
 
 
 
+
+# def bdd_get_players_value(ident, ind_player, key):
+#     """This function finds the key's value in the bdd of players"""
+#     with r.RethinkDB().connect(host=host, port=port) as conn:
+
+#         return r.RethinkDB().table("games").get(ident)['players'].filter({"ind_player": ind_player}).run(conn)[0][key]
 
 
 
