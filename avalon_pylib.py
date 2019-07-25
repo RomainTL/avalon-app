@@ -15,48 +15,51 @@ import rethinkdb as r
 
 avalon_blueprint = Blueprint('avalon', __name__)
 
-# host = "localhost"
-# port = 28015
+host = "rethinkdb"
+port = 28015
 
 users = {"mathieu": generate_password_hash("lebeaugosse"),
          "romain": generate_password_hash("lala")}
 
-# @auth.verify_password
-def verify_password(username, password):
-    if username in users:
-        return check_password_hash(users.get(username), password)
-    return False
 
 
-def bdd_get_value(ident, key):
-    """This function finds the key's value in the bdd"""
+# # @auth.verify_password
+# def verify_password(username, password):
+#     if username in users:
+#         return check_password_hash(users.get(username), password)
+#     return False
+
+
+# def bdd_get_players_value(ident, ind_player, key):
+#     """This function finds the key's value in the bdd of players"""
+#     with r.RethinkDB().connect(host=host, port=port) as conn:
+
+#         return r.RethinkDB().table("games").get(ident)['players'].filter({"ind_player": ind_player}).run(conn)[0][key]
+
+
+def bdd_get_value(table, ident, key):
+    """This function finds the key's value in the table"""
 
     with r.RethinkDB().connect(host=host, port=port) as conn:
 
-        return r.RethinkDB().table("games").get(ident)[key].run(conn)
+        return r.RethinkDB().table(table).get(ident)[key].run(conn)
 
 
-def bdd_get_players_value(ident, ind_player, key):
-    """This function finds the key's value in the bdd of players"""
-    with r.RethinkDB().connect(host=host, port=port) as conn:
 
-        return r.RethinkDB().table("games").get(ident)['players'].filter({"ind_player": ind_player}).run(conn)[0][key]
-
-
-def bdd_update_value(ident, key, value):
+def bdd_update_value(table, ident, key, value):
     """This function updates the key's value in the bdd"""
 
     with r.RethinkDB().connect(host=host, port=port) as conn:
 
-        return r.RethinkDB().table("games").get(ident).update({key: value}).run(conn)
+        return r.RethinkDB().table(table).get(ident).update({key: value}).run(conn)
 
 
-@avalon_blueprint.route('/test_lala', methods=['GET'])
-def test_lala():
-    return jsonify({'test': 'lala'})
+# @avalon_blueprint.route('/test_lala', methods=['GET'])
+# def test_lala():
+#     return jsonify({'test': 'lala'})
 
 
-@avalon_blueprint.route('/restart_bdd', methods=['POST'])
+@avalon_blueprint.route('/restart_bdd', methods=['PUT'])
 def restart_bdd():
     """This function deletes all tables in the post request and initializes them"""
 
@@ -65,44 +68,15 @@ def restart_bdd():
             if key in r.RethinkDB().db('test').table_list().run(conn):
                 r.RethinkDB().table_drop(key).run(conn)
 
-            if key == "rules":
-                # initialize table rules
-                r.RethinkDB().table_create("rules").run(conn)
-                r.RethinkDB().table("rules").insert([
-                    {"nb_player": 5, "BLUE": 3, "RED": 2, "q1": 2, "q2": 3, "q3": 2, "q4": 3, "q5": 3},
-                    {"nb_player": 6, "BLUE": 4, "RED": 2, "q1": 2, "q2": 3, "q3": 4, "q4": 3, "q5": 4},
-                    {"nb_player": 7, "BLUE": 4, "RED": 3, "q1": 2, "q2": 3, "q3": 3, "q4": 4, "q5": 4},
-                    {"nb_player": 8, "BLUE": 5, "RED": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
-                    {"nb_player": 9, "BLUE": 6, "RED": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
-                    {"nb_player": 10, "BLUE": 6, "RED": 4, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5}]).run(conn)
-
-            elif key == "games":
-                # initialize table games
-                r.RethinkDB().table_create("games").run(conn)
-                r.RethinkDB().table("games").insert([
-                    {'players': [{'ind_player': 0, 'name': 'Chacha', 'role': 'Oberon', 'color': 'RED'},
-                                 {'ind_player': 1, 'name': 'Romain', 'role': 'Blue', 'color': 'BLUE'},
-                                 {'ind_player': 2, 'name': 'Elsa', 'role': 'Mordred', 'color': 'RED'},
-                                 {'ind_player': 3, 'name': 'Mathieu', 'role': 'Assassin', 'color': 'RED'},
-                                 {'ind_player': 4, 'name': 'Flo', 'role': 'Merlin', 'color': 'BLUE'},
-                                 {'ind_player': 5, 'name': 'Eglantine', 'role': 'Blue', 'color': 'BLUE'},
-                                 {'ind_player': 6, 'name': 'Richard', 'role': 'Blue', 'color': 'BLUE'},
-                                 {'ind_player': 7, 'name': 'Quentin', 'role': 'Blue', 'color': 'BLUE'}],
-                     'current_player': 3,
-                     'current_turn': 0,
-                     'current_echec': 0,
-                     'rules': {"BLUE": 5, "RED": 3, "q1": 3, "q2": 4,
-                               "q3": 4, "q4": 5, "q5": 5}}]).run(conn)
-            else:
-                # initialize table in post request
-                r.RethinkDB().table_create(key).run(conn)
+            # nitialize table rules
+            r.RethinkDB().table_create(key).run(conn)
 
     return jsonify({"request": "succeeded"})
 
 
 @avalon_blueprint.route('/view/<name>', methods=['GET'])
 # @auth.login_required
-def view_(name):
+def view(name):
     """This function gives a table depending on the name"""
     response = {name: []}
     print(host, port)
@@ -114,45 +88,45 @@ def view_(name):
     return jsonify(response)
 
 
-@avalon_blueprint.route('/new_game', methods=['PUT'])
-# @auth.login_required
-def new_game():
-    """This functions inserts a new game in the database and returns the id created"""
-    with r.RethinkDB().connect(host=host, port=port) as conn:
-        insert = r.RethinkDB().table("games").insert([
-                    {"players": [],
-                     "rules": {}}]).run(conn)
-    return jsonify({"id": insert["generated_keys"][0]})
+# # @auth.login_required
+# def new_game():
+#     """This functions inserts a new game in the database and returns the id created"""
+
+#     with r.RethinkDB().connect(host=host, port=port) as conn:
+#         insert = r.RethinkDB().table("games").insert([
+#                     {"players": [],
+#                      "rules": {}}]).run(conn)
+#     return insert["generated_keys"][0]
 
 
 def roles_and_players(dict_names_roles, max_red, max_blue):
     """Check the validity of proposed roles
-    cases break rules : - 1. Morgan in the game but Perceval is not
-                        - 2. Perceval in the game but Morgan is not
+    cases break rules : - 1. morgan in the game but Perceval is not
+                        - 2. perceval in the game but Morgan is not
                         - 3. Unvalid role
                         - 4. Too many red in the game (or too many blue in the game, checked but impossible)"""
 
-    if "Morgan" in dict_names_roles["roles"] and "Perceval" not in dict_names_roles["roles"]:
-        print("ERROR !!! Morgan is in the game but Perceval is not")
+    if "morgan" in dict_names_roles["roles"] and "perceval" not in dict_names_roles["roles"]:
+        print("ERROR !!! morgan is in the game but perceval is not")
 
-    if "Perceval" in dict_names_roles["roles"] and "Morgan" not in dict_names_roles["roles"]:
-        print("ERROR !!! Perceval is in the game but Morgan is not")
+    if "perceval" in dict_names_roles["roles"] and "morgan" not in dict_names_roles["roles"]:
+        print("ERROR !!! perceval is in the game but morgan is not")
 
     nb_red, nb_blue = 1, 1
-    list_roles = ["Merlin", "Assassin"]
+    list_roles = ["merlin", "assassin"]
     for role in dict_names_roles["roles"]:
-        if role in ["Mordred", "Morgan", "Oberon"]:
+        if role in ["mordred", "morgan", "oberon"]:
             nb_red += 1
             list_roles.append(role)
-        elif role == "Perceval":
+        elif role == "perceval":
             nb_blue += 1
             list_roles.append(role)
         else:
             print("ERROR !!! can't add this role: "+str(role))
 
     if nb_red <= max_red and nb_blue <= max_blue:
-        list_roles.extend(["Red"]*(max_red-nb_red))
-        list_roles.extend(["Blue"]*(max_blue-nb_blue))
+        list_roles.extend(["red"]*(max_red-nb_red))
+        list_roles.extend(["blue"]*(max_blue-nb_blue))
 
     else:
         print("ERROR !!! Too many red or blue")
@@ -161,34 +135,76 @@ def roles_and_players(dict_names_roles, max_red, max_blue):
 
     list_players = []
     for ind, role in enumerate(list_roles):
-        if role in ["Merlin", "Perceval", "Blue"]:
-            list_players.append({"ind_player": ind, "name": dict_names_roles["names"][ind], "color": "BLUE", "role": role})
+        if role in ["merlin", "perceval", "blue"]:
+            list_players.append({"ind_player": ind, "name": dict_names_roles["names"][ind], "team": "blue", "role": role})
         else:
-            list_players.append({"ind_player": ind, "name": dict_names_roles["names"][ind], "color": "RED", "role": role})
+            list_players.append({"ind_player": ind, "name": dict_names_roles["names"][ind], "team": "red", "role": role})
 
     return list_players
 
 
-@avalon_blueprint.route('/<ident>/add_roles', methods=['POST'])
-def add_roles(ident):
+@avalon_blueprint.route('/games', methods=['PUT'])
+def add_roles():
     """This functions adds rules and roles to players randomly"""
 
     with r.RethinkDB().connect(host=host, port=port) as conn:
+        insert = r.RethinkDB().table("games").insert([
+                    {"players": [],
+                     "rules": {}}]).run(conn)
+    
+        id_game = insert["generated_keys"][0]
 
         # add rules
         rules = list(r.RethinkDB().table("rules").filter({"nb_player": len(request.json["names"])}).run(conn))[0]
         del rules["id"]
         del rules["nb_player"]
-        bdd_update_value(ident, "rules", rules)
+        bdd_update_value("games", id_game, "rules", rules)
 
         # add players
-        players = roles_and_players(request.json, rules["RED"], rules["BLUE"])
-        bdd_update_value(ident, "players", players)
-        bdd_update_value(ident, "current_player", choice(range(len(request.json["names"]))))
-        bdd_update_value(ident, "current_turn", 1)
-        bdd_update_value(ident, "current_echec", 0)
+        players = roles_and_players(request.json, rules["red"], rules["blue"])
+        list_id_player = []
+        for player in players:
+            insert = r.RethinkDB().table("players").insert(player).run(conn)
+            list_id_player.append(insert["generated_keys"][0])
 
-    return jsonify({"players": bdd_get_value(ident, "players")})
+        bdd_update_value("games", id_game, "current_player", choice(range(len(request.json["names"]))))
+        bdd_update_value("games", id_game, "current_turn", 1)
+        bdd_update_value("games", id_game, "current_echec", 0)
+
+        list_players = []
+        for id_player in list_id_player:
+            list_players.append(list(r.RethinkDB().table("players").get_all(id_player).run(conn))[0])
+
+
+    return jsonify({"players": list_players, "id": id_game})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 @avalon_blueprint.route('/<ident>/get/<table>/<key>', methods=['POST'])
@@ -198,134 +214,157 @@ def get(ident, table, key):
     return r.RethinkDB().table(table).get(ident)[key].run(conn)
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #######################################################################################################################
 #######################################################################################################################
 
-@avalon_blueprint.route('/<ident>/new_turn', methods=['GET'])
-def new_turn(ident):
-    """This function updates the bdd with a new turn"""
+# @avalon_blueprint.route('/<ident>/new_turn', methods=['GET'])
+# def new_turn(ident):
+#     """This function updates the bdd with a new turn"""
 
-    with r.RethinkDB().connect(host=host, port=port) as conn:
+#     with r.RethinkDB().connect(host=host, port=port) as conn:
 
-        nb_player = len(bdd_get_value(ident, "players"))-1
+#         nb_player = len(bdd_get_value(ident, "players"))-1
 
-        # get current player
-        current_player = bdd_get_value(ident, 'current_player')
+#         # get current player
+#         current_player = bdd_get_value(ident, 'current_player')
 
-        # get name of current player
-        name_player = bdd_get_players_value(ident, current_player, 'name')
+#         # get name of current player
+#         name_player = bdd_get_players_value(ident, current_player, 'name')
 
-        # get current turn
-        current_turn = bdd_get_value(ident, "current_turn")
+#         # get current turn
+#         current_turn = bdd_get_value(ident, "current_turn")
 
-        # get number of echecs
-        nb_echec_to_fail = 1
-        if current_turn == 4 and nb_player >= 7:
-            nb_echec_to_fail = 2
+#         # get number of echecs
+#         nb_echec_to_fail = 1
+#         if current_turn == 4 and nb_player >= 7:
+#             nb_echec_to_fail = 2
 
-        # get number of mission
-        nb_failed_mission = bdd_get_value(ident, "current_echec")
+#         # get number of mission
+#         nb_failed_mission = bdd_get_value(ident, "current_echec")
 
-        # get number of vote
-        nb_in_mission = r.RethinkDB().table("games").get(ident)['rules']['q'+str(current_turn)].run(conn)
+#         # get number of vote
+#         nb_in_mission = r.RethinkDB().table("games").get(ident)['rules']['q'+str(current_turn)].run(conn)
 
-    return jsonify({"name_player": name_player, "turn": current_turn, "nb_echec_to_fail": nb_echec_to_fail,
-                    "nb_failed_mission": nb_failed_mission, "nb_in_mission": nb_in_mission})
-
-
-@avalon_blueprint.route('/<ident>/new_mission', methods=['GET'])
-def new_mission(ident):
-    """This function updates the bdd with a new vote"""
-
-    with r.RethinkDB().connect(host=host, port=port) as conn:
-
-        nb_player = len(bdd_get_value(ident, "players"))-1
-
-        # get current player
-        current_player = bdd_get_value(ident, 'current_player')
-
-        # get name of current player
-        name_player = bdd_get_players_value(ident, current_player, 'name')
-
-        # get current turn
-        current_turn = bdd_get_value(ident, "current_turn")
-
-        # get number of echecs
-        nb_echec_to_fail = 1
-        if current_turn == 4 and nb_player >= 7:
-            nb_echec_to_fail = 2
-
-        # get number of echec
-        nb_failed_mission = bdd_get_value(ident, "current_echec")
-
-        # get number of vote
-        nb_vote = r.RethinkDB().table("games").get(ident)['rules']['q'+str(current_turn)].run(conn)
-
-    return jsonify({"name_player": name_player, "turn": current_turn, "nb_echec_to_fail": nb_echec_to_fail,
-                    "nb_failed_mission": nb_failed_mission, "nb_in_mission": nb_in_mission})
+#     return jsonify({"name_player": name_player, "turn": current_turn, "nb_echec_to_fail": nb_echec_to_fail,
+#                     "nb_failed_mission": nb_failed_mission, "nb_in_mission": nb_in_mission})
 
 
-@avalon_blueprint.route('/<ident>/vote', methods=['POST'])
-def vote(ident):
-    """This function gives the answer of a vote"""
+# @avalon_blueprint.route('/<ident>/new_mission', methods=['GET'])
+# def new_mission(ident):
+#     """This function updates the bdd with a new vote"""
 
-    if request.json["vote"] == "refused":
+#     with r.RethinkDB().connect(host=host, port=port) as conn:
 
-        nb_player = len(bdd_get_value(ident, "players"))-1
+#         nb_player = len(bdd_get_value(ident, "players"))-1
 
-        # update current player
-        current_player = bdd_get_value(ident, 'current_player')
-        new_current_player = current_player+1
-        if current_player == nb_player:
-            new_current_player = 0
-        bdd_update_value(ident, "current_player", new_current_player)
+#         # get current player
+#         current_player = bdd_get_value(ident, 'current_player')
 
-        # update number of echec
-        new_current_echec = bdd_get_value(ident, 'current_echec')+1
-        bdd_update_value(ident, "current_echec", new_current_echec)
+#         # get name of current player
+#         name_player = bdd_get_players_value(ident, current_player, 'name')
 
-        return jsonify({"request": "succeeded"})
+#         # get current turn
+#         current_turn = bdd_get_value(ident, "current_turn")
 
-    return jsonify({"players": bdd_get_value(ident, "players")})
+#         # get number of echecs
+#         nb_echec_to_fail = 1
+#         if current_turn == 4 and nb_player >= 7:
+#             nb_echec_to_fail = 2
+
+#         # get number of echec
+#         nb_failed_mission = bdd_get_value(ident, "current_echec")
+
+#         # get number of vote
+#         nb_vote = r.RethinkDB().table("games").get(ident)['rules']['q'+str(current_turn)].run(conn)
+
+#     return jsonify({"name_player": name_player, "turn": current_turn, "nb_echec_to_fail": nb_echec_to_fail,
+#                     "nb_failed_mission": nb_failed_mission, "nb_in_mission": nb_in_mission})
 
 
-@avalon_blueprint.route('/<ident>/shuffle_vote', methods=['POST'])
-def shuffle_vote(ident):
-    """This function shuffles vote"""
+# @avalon_blueprint.route('/<ident>/vote', methods=['POST'])
+# def vote(ident):
+#     """This function gives the answer of a vote"""
 
-    dict_bdd = request.json.copy()
-    nb_player = len(bdd_get_value(ident, "players"))-1
+#     if request.json["vote"] == "refused":
 
-    # get current turn
-    current_turn = bdd_get_value(ident, "current_turn")
+#         nb_player = len(bdd_get_value(ident, "players"))-1
 
-    # get number of echecs
-    nb_echec_to_fail = 1
-    if current_turn == 4 and nb_player >= 7:
-        nb_echec_to_fail = 2
+#         # update current player
+#         current_player = bdd_get_value(ident, 'current_player')
+#         new_current_player = current_player+1
+#         if current_player == nb_player:
+#             new_current_player = 0
+#         bdd_update_value(ident, "current_player", new_current_player)
 
-    cpt_false = 0
-    for val in dict_bdd.values():
-        if val == "FAIL":
-            cpt_false += 1
+#         # update number of echec
+#         new_current_echec = bdd_get_value(ident, 'current_echec')+1
+#         bdd_update_value(ident, "current_echec", new_current_echec)
 
-    dict_bdd["result"] = "SUCCESS"
-    if cpt_false >= nb_echec_to_fail:
-        dict_bdd["result"] = "FAIL"
+#         return jsonify({"request": "succeeded"})
 
-    bdd_update_value(ident, "mission_"+str(current_turn), dict_bdd)
+#     return jsonify({"players": bdd_get_value(ident, "players")})
 
-    bdd_update_value(ident, "current_turn", current_turn)
 
-    list_vote = request.json.values()
-    shuffle(list_vote)
+# @avalon_blueprint.route('/<ident>/shuffle_vote', methods=['POST'])
+# def shuffle_vote(ident):
+#     """This function shuffles vote"""
 
-    dict_output = {}
-    for ind, vote in enumerate(list_vote):
-        dict_output["vote"+str(ind+1)] = vote
-    dict_output["result"] = dict_bdd["result"]
+#     dict_bdd = request.json.copy()
+#     nb_player = len(bdd_get_value(ident, "players"))-1
 
-    return jsonify(dict_output)
+#     # get current turn
+#     current_turn = bdd_get_value(ident, "current_turn")
+
+#     # get number of echecs
+#     nb_echec_to_fail = 1
+#     if current_turn == 4 and nb_player >= 7:
+#         nb_echec_to_fail = 2
+
+#     cpt_false = 0
+#     for val in dict_bdd.values():
+#         if val == "FAIL":
+#             cpt_false += 1
+
+#     dict_bdd["result"] = "SUCCESS"
+#     if cpt_false >= nb_echec_to_fail:
+#         dict_bdd["result"] = "FAIL"
+
+#     bdd_update_value(ident, "mission_"+str(current_turn), dict_bdd)
+
+#     bdd_update_value(ident, "current_turn", current_turn)
+
+#     list_vote = request.json.values()
+#     shuffle(list_vote)
+
+#     dict_output = {}
+#     for ind, vote in enumerate(list_vote):
+#         dict_output["vote"+str(ind+1)] = vote
+#     dict_output["result"] = dict_bdd["result"]
+
+#     return jsonify(dict_output)
 
 
 #######################################################################################################################

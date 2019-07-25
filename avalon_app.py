@@ -6,12 +6,15 @@
 import argparse
 
 from flask import Flask
+from flask_cors import CORS
 from flask_httpauth import HTTPBasicAuth
 
 from avalon_pylib import avalon_blueprint
 
 
 app = Flask(__name__)
+CORS(app)
+
 auth = HTTPBasicAuth()
 app.register_blueprint(avalon_blueprint)
 
@@ -36,4 +39,4 @@ if __name__ == '__main__':
     ARGS = PARSER.parse_args()
 
     # Start the RESTful web service used in Avalon
-    app.run(host=ARGS.host, port=ARGS.port)
+    app.run(host=ARGS.host, port=ARGS.port, debug=True)

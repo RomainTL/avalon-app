@@ -21,16 +21,17 @@ RUN /root/miniconda2/bin/conda install pip && \
 	/root/miniconda2/bin/pip install --upgrade pip && \
 	/root/miniconda2/bin/pip install --upgrade setuptools
 
-COPY avalon_pkg/ Avalon/avalon_pkg
-COPY app/ Avalon/app
-COPY data/ Avalon/data
+RUN mkdir Avalon
+COPY requirements.txt /Avalon
+COPY resources /Avalon
 
 WORKDIR Avalon
 
-RUN cd avalon_pkg && \
-	/root/miniconda2/bin/pip install -r requirements.txt && \
-	/root/miniconda2/bin/python setup.py install
+RUN /root/miniconda2/bin/pip install -r requirements.txt
 
-CMD ["sh", "-c", "/root/miniconda2/bin/python app/app.py"]
+COPY avalon_app.py ./
+COPY avalon_pylib.py ./
+
+CMD ["sh", "-c", "/root/miniconda2/bin/python avalon_app.py"]
 
 # CMD ["sh", "-c", "/root/miniconda2/bin/python app/app.py ${WEBSERVICEHOST} ${WEBSERVICEPORT} ${DBHOST} ${DBPORT}"]
