@@ -23,8 +23,9 @@ RUN /root/miniconda2/bin/conda install pip && \
 
 RUN mkdir Avalon
 COPY requirements.txt /Avalon
-COPY resources /Avalon
 
+RUN mkdir Avalon/resources
+COPY resources /Avalon/resources
 WORKDIR Avalon
 
 RUN /root/miniconda2/bin/pip install -r requirements.txt

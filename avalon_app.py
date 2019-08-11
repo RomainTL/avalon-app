@@ -13,7 +13,7 @@ from avalon_pylib import avalon_blueprint
 
 
 app = Flask(__name__)
-CORS(app)
+# CORS(app)
 
 auth = HTTPBasicAuth()
 

@@ -48,8 +48,16 @@ def restart_bdd():
             if key in r.RethinkDB().db('test').table_list().run(conn):
                 r.RethinkDB().table_drop(key).run(conn)
 
-            # initialize table rules
+            # initialize table
             r.RethinkDB().table_create(key).run(conn)
+            if key == "rules":
+                r.RethinkDB().table("rules").insert([
+                    {"nb_player": 5, "blue": 3, "red": 2, "q1": 2, "q2": 3, "q3": 2, "q4": 3, "q5": 3},
+                    {"nb_player": 6, "blue": 4, "red": 2, "q1": 2, "q2": 3, "q3": 4, "q4": 3, "q5": 4},
+                    {"nb_player": 7, "blue": 4, "red": 3, "q1": 2, "q2": 3, "q3": 3, "q4": 4, "q5": 4},
+                    {"nb_player": 8, "blue": 5, "red": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
+                    {"nb_player": 9, "blue": 6, "red": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
+                    {"nb_player": 10, "blue": 6, "red": 4, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5}]).run(conn)
 
     return jsonify({"request": "succeeded"})
 
@@ -149,7 +157,13 @@ def roles_and_players(dict_names_roles, max_red, max_blue):
 
 @avalon_blueprint.route('/games', methods=['PUT'])
 def add_roles():
-    """This functions adds rules and roles to players randomly"""
+    """This function adds rules and roles to players randomly
+        - method: PUT
+            - route: /games
+            - example payload: {"names": ["Chacha", "Romain", "Elsa", "Mathieu", "Flo",
+                                          "Eglantine", "Richard", "Quentin", "Thomas"],
+                                "roles": ["Oberon", "Perceval", "Morgan"]}
+    """
 
     with r.RethinkDB().connect(host=host, port=port) as conn:
         insert = r.RethinkDB().table("games").insert([
@@ -174,6 +188,7 @@ def add_roles():
         bdd_update_value("games", id_game, "current_player", choice(range(len(request.json["names"]))))
         bdd_update_value("games", id_game, "current_turn", 1)
         bdd_update_value("games", id_game, "current_echec", 0)
+        bdd_update_value("games", id_game, "players", list_id_player)
 
         list_players = []
         for id_player in list_id_player:
@@ -380,32 +395,63 @@ def get(ident, table, key):
 #######################################################################################################################
 #######################################################################################################################
 
+
+
+
+
+
 def create_mp3(list_roles):
     """Create mp3 file depending on roles in the game"""
+
     list_to_merge = ["init.mp3", "serv_mord.mp3"]
-    if "Oberon" in list_roles:
+    if "oberon" in list_roles:
         list_to_merge.append("oberon.mp3")
     list_to_merge.append("red_identi.mp3")
 
-    if "Morgan" in list_roles and "Perceval" in list_roles:
+    if "morgan" in list_roles and "perceval" in list_roles:
         list_to_merge.append("add_per_mor.mp3")
 
     list_to_merge.append("serv_mord.mp3")
-    if "Mordred" in list_roles:
+    if "mordred" in list_roles:
         list_to_merge.append("mordred.mp3")
     list_to_merge.extend(["merlin_identi.mp3", "end.mp3"])
 
     str_command = "cat "
     for i in range(len(list_to_merge)):
-        str_command += "data/"+list_to_merge[i]+" "
-    str_command += " > data/roles.mp3"
+        str_command += "resources/"+list_to_merge[i]+" "
+    str_command += " > resources/roles.mp3"
     os.system(str_command)
-    print("\n\n")
-    mp3_file = open('./data/roles.mp3', 'rb')
+    print("\n\n----->", str_command)
+    mp3_file = open('./resources/roles.mp3', 'rb')
     print(mp3_file)
-    os.system("rm -f /data/roles.mp3")
+    #os.system("rm -f /resources/roles.mp3")
 
     return mp3_file
+
+# def create_mp3(list_roles):
+#     """Create mp3 file depending on roles in the game"""
+
+#     list_to_merge = ["init.mp3", "serv_mord.mp3"]
+#     if "oberon" in list_roles:
+#         list_to_merge.append("oberon.mp3")
+#     list_to_merge.append("red_identi.mp3")
+
+#     if "morgan" in list_roles and "perceval" in list_roles:
+#         list_to_merge.append("add_per_mor.mp3")
+
+#     list_to_merge.append("serv_mord.mp3")
+#     if "mordred" in list_roles:
+#         list_to_merge.append("mordred.mp3")
+
+#     list_to_merge.extend(["merlin_identi.mp3", "end.mp3"])
+    
+#     str_command = "python concat.py "
+#     for val in list_to_merge:
+#         str_command += "resources/"+val+" "
+#     str_command += "> resources/roles.mp3"
+#     print(str_command)
+#     os.system(str_command)
+
 
 
 @avalon_blueprint.route("/<ident>/mp3_2")
@@ -419,12 +465,25 @@ def streamwav():
     return Response(generate(), mimetype="audio/mpeg") # mimetype="audio/x-mp3", mimetype="audio/mp3"
 
 
-@avalon_blueprint.route('/<ident>/mp3', methods=['POST'])
-def post_mp3():
-    mp3_file = create_mp3(request.json["roles"])
-    print(mp3_file)
+@avalon_blueprint.route('/<ident>/mp3', methods=['GET'])
+def post_mp3(ident):
+    list_players_id = bdd_get_value("games", ident, "players")
+    with r.RethinkDB().connect(host=host, port=port) as conn:
+        list_roles = []
+        for player_id in list_players_id:
+            list_roles.append(list(r.RethinkDB().table("players").filter({"id": player_id}).run(conn))[0]["role"])
+
+    create_mp3(list_roles)
+    # mp3_file = create_mp3(list_roles)
+    # print(mp3_file)
     # response = make_response(mp3_file)
     # response.headers.set('Content-Type', 'audio/mpeg')
     # response.headers.set('Content-Disposition', 'attachment', filename='%s.jpg' % pid)
+    return send_file("resources/roles.mp3", attachment_filename='roles.mp3', mimetype='audio/mpeg')
 
-    return send_file("./data/roles.mp3", attachment_filename='roles.mp3', mimetype='audio/mpeg')
+
+
+
+
+
+

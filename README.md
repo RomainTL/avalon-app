@@ -44,7 +44,8 @@ PUT: http://localhost/new_game
 
 4. Entrer le nom des joueurs d'une partie:
 POST: http://localhost/1b8ad78c-da1d-41c1-8552-d2456ae13823/add_roles
-Body: {"names": ["Chacha", "Romain", "Elsa", "Mathieu", "Flo", "Eglantine", "Richard", "Quentin", "Thomas"], "roles": ["Oberon", "Perceval", "Morgan"]}
+Body: {"names": ["Chacha", "Romain", "Elsa", "Mathieu", "Flo", "Eglantine", "Richard", "Quentin", "Thomas"],
+       "roles": ["Oberon", "Perceval", "Morgan"]}
 
 --->
 {
