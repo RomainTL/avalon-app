@@ -33,66 +33,6 @@ users = {"mathieu": generate_password_hash("lebeaugosse"),
 
 
 
-
-@avalon_blueprint.route('/restart_bdd', methods=['PUT'])
-def restart_bdd():
-    """
-    This function deletes all tables in the post request and initializes them
-        - method: PUT
-            - route: /restart_bdd
-            - example payload: {"table1": "rules", "table2": "games"}
-    """
-
-    with r.RethinkDB().connect(host=host, port=port) as conn:
-        for key in request.json.values():
-            if key in r.RethinkDB().db('test').table_list().run(conn):
-                r.RethinkDB().table_drop(key).run(conn)
-
-            # initialize table
-            r.RethinkDB().table_create(key).run(conn)
-            if key == "rules":
-                r.RethinkDB().table("rules").insert([
-                    {"nb_player": 5, "blue": 3, "red": 2, "q1": 2, "q2": 3, "q3": 2, "q4": 3, "q5": 3},
-                    {"nb_player": 6, "blue": 4, "red": 2, "q1": 2, "q2": 3, "q3": 4, "q4": 3, "q5": 4},
-                    {"nb_player": 7, "blue": 4, "red": 3, "q1": 2, "q2": 3, "q3": 3, "q4": 4, "q5": 4},
-                    {"nb_player": 8, "blue": 5, "red": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
-                    {"nb_player": 9, "blue": 6, "red": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
-                    {"nb_player": 10, "blue": 6, "red": 4, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5}]).run(conn)
-
-    return jsonify({"request": "succeeded"})
-
-
-# @auth_blueprint.login_required
-@avalon_blueprint.route('/view/<name>', methods=['GET'])
-def view(name):
-    """
-    This function gives a table depending on the input name
-        - method: GET
-            - route: /view/rules or /view/games
-            - example payload:
-    """
-    response = {name: []}
-    with r.RethinkDB().connect(host=host, port=port) as conn:
-        cursor = r.RethinkDB().table(name).run(conn)
-        for document in cursor:
-            response[name].append(document)
-
-    return jsonify(response)
-
-
-# # @auth.login_required
-# def new_game():
-#     """This functions inserts a new game in the database and returns the id created"""
-
-#     with r.RethinkDB().connect(host=host, port=port) as conn:
-#         insert = r.RethinkDB().table("games").insert([
-#                     {"players": [],
-#                      "rules": {}}]).run(conn)
-#     return insert["generated_keys"][0]
-
-
-
-
 def bdd_get_value(table, ident, key):
     """This function finds the key's value in the table"""
 
@@ -108,7 +48,6 @@ def bdd_update_value(table, ident, key, value):
     with r.RethinkDB().connect(host=host, port=port) as conn:
 
         return r.RethinkDB().table(table).get(ident).update({key: value}).run(conn)
-
 
 
 def roles_and_players(dict_names_roles, max_red, max_blue):
@@ -148,11 +87,63 @@ def roles_and_players(dict_names_roles, max_red, max_blue):
     list_players = []
     for ind, role in enumerate(list_roles):
         if role in ["merlin", "perceval", "blue"]:
-            list_players.append({"ind_player": ind, "name": dict_names_roles["names"][ind], "team": "blue", "role": role})
+            list_players.append({"ind_player": ind, "name": dict_names_roles["names"][ind],
+                                 "team": "blue", "role": role})
         else:
-            list_players.append({"ind_player": ind, "name": dict_names_roles["names"][ind], "team": "red", "role": role})
+            list_players.append({"ind_player": ind, "name": dict_names_roles["names"][ind],
+                                 "team": "red", "role": role})
 
     return list_players
+
+
+
+
+@avalon_blueprint.route('/restart_bdd', methods=['PUT'])
+def restart_bdd():
+    """
+    This function deletes all tables in the post request and initializes them
+        - method: PUT
+            - route: /restart_bdd
+            - example payload: {"table1": "rules", "table2": "games"}
+    """
+
+    with r.RethinkDB().connect(host=host, port=port) as conn:
+        for key in request.json.values():
+            if key in r.RethinkDB().db('test').table_list().run(conn):
+                r.RethinkDB().table_drop(key).run(conn)
+
+            # initialize table
+            r.RethinkDB().table_create(key).run(conn)
+
+            # fill rules table
+            if key == "rules":
+                r.RethinkDB().table("rules").insert([
+                    {"nb_player": 5, "blue": 3, "red": 2, "q1": 2, "q2": 3, "q3": 2, "q4": 3, "q5": 3},
+                    {"nb_player": 6, "blue": 4, "red": 2, "q1": 2, "q2": 3, "q3": 4, "q4": 3, "q5": 4},
+                    {"nb_player": 7, "blue": 4, "red": 3, "q1": 2, "q2": 3, "q3": 3, "q4": 4, "q5": 4},
+                    {"nb_player": 8, "blue": 5, "red": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
+                    {"nb_player": 9, "blue": 6, "red": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
+                    {"nb_player": 10, "blue": 6, "red": 4, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5}]).run(conn)
+
+    return jsonify({"request": "succeeded"})
+
+
+# @auth_blueprint.login_required
+@avalon_blueprint.route('/view/<table_name>', methods=['GET'])
+def view(table_name):
+    """
+    This function gives a table depending on the input table_name
+        - method: GET
+            - route: /view/rules or /view/games
+            - example payload:
+    """
+    response = {table_name: []}
+    with r.RethinkDB().connect(host=host, port=port) as conn:
+        cursor = r.RethinkDB().table(table_name).run(conn)
+        for document in cursor:
+            response[table_name].append(document)
+
+    return jsonify(response)
 
 
 @avalon_blueprint.route('/games', methods=['PUT'])
@@ -219,42 +210,11 @@ def add_roles():
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 @avalon_blueprint.route('/<ident>/get/<table>/<key>', methods=['POST'])
 def get(ident, table, key):
     """This function finds the key's value depending of the table in the bdd"""
 
     return r.RethinkDB().table(table).get(ident)[key].run(conn)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -444,7 +404,7 @@ def create_mp3(list_roles):
 #         list_to_merge.append("mordred.mp3")
 
 #     list_to_merge.extend(["merlin_identi.mp3", "end.mp3"])
-    
+
 #     str_command = "python concat.py "
 #     for val in list_to_merge:
 #         str_command += "resources/"+val+" "
@@ -454,20 +414,20 @@ def create_mp3(list_roles):
 
 
 
-@avalon_blueprint.route("/<ident>/mp3_2")
-def streamwav():
-    def generate():
-        with open("data/roles.mp3", "rb") as fwav:
-            data = fwav.read(1024)
-            while data:
-                yield data
-                data = fwav.read(1024)
-    return Response(generate(), mimetype="audio/mpeg") # mimetype="audio/x-mp3", mimetype="audio/mp3"
+# @avalon_blueprint.route("/<ident>/mp3_2")
+# def streamwav():
+#     def generate():
+#         with open("data/roles.mp3", "rb") as fwav:
+#             data = fwav.read(1024)
+#             while data:
+#                 yield data
+#                 data = fwav.read(1024)
+#     return Response(generate(), mimetype="audio/mpeg") # mimetype="audio/x-mp3", mimetype="audio/mp3"
 
 
-@avalon_blueprint.route('/<ident>/mp3', methods=['GET'])
-def post_mp3(ident):
-    list_players_id = bdd_get_value("games", ident, "players")
+@avalon_blueprint.route('/<game_id>/mp3', methods=['GET'])
+def post_mp3(game_id):
+    list_players_id = bdd_get_value("games", game_id, "players")
     with r.RethinkDB().connect(host=host, port=port) as conn:
         list_roles = []
         for player_id in list_players_id:

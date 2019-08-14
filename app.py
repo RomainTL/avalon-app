@@ -9,7 +9,7 @@ from flask import Flask
 from flask_cors import CORS
 from flask_httpauth import HTTPBasicAuth
 
-from avalon_pylib import avalon_blueprint
+from pylib import avalon_blueprint
 
 
 app = Flask(__name__)

@@ -20,8 +20,8 @@
   - Visualize databases (3 tables)
   ```bash
        - method: GET
-       - route: /view/rules (or /view/games or /view/players)
-       - payload example: 
+       - route: /view/<table_name> (table_name is rules or games or players)
+       - payload example:
        - response example: {
                                "rules": [
                                    {
@@ -51,8 +51,8 @@
                                    }
                                ]
                            }
-  ```  
-  - Start a new game 
+  ```
+  - Start a new game
   ```bash
        - method: PUT
        - route: /games
@@ -81,7 +81,7 @@
                                        "team": "red"
                                    },
                                    {
-                                       ...      
+                                       ...
                                    },
                                    {
                                        "id": "83d21d25-f359-4ddc-9048-69ba1e6cf5b5",
@@ -92,17 +92,24 @@
                                    }
                                ]
                            }
-  ```  
+  ```
+  - Get mp3 file
+  ```bash
+       - method: GET
+       - route: /<game_id>/mp3
+       - payload example:
+       - response example: response.mpga
+  ```
 
 
 
 
 
 
-3. Démarrer une nouvelle partie:
-PUT: http://localhost/new_game
 
----> {"id": "1b8ad78c-da1d-41c1-8552-d2456ae13823"}
+
+
+
 
 
 4. Entrer le nom des joueurs d'une partie:
