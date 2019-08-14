@@ -1,39 +1,102 @@
-Installer miniconda3
+# Avalon application
 
-pip install -r requirements.txt
+## How to use the RESTful API ?
+
+* Launch the script start_app.sh (you have to install docker-compose before it).
+* Then you can send request as follows.
+  - Initialize databases (3 tables)
+  ```bash
+       - method: PUT
+       - route: /retart_bdd
+       - payload example: {
+                              "table1": "rules",
+                              "table2": "games",
+                              "table3": "players"
+                          }
+       - response example: {
+                               "request": "succeeded"
+                           }
+  ```
+  - Visualize databases (3 tables)
+  ```bash
+       - method: GET
+       - route: /view/rules (or /view/games or /view/players)
+       - payload example: 
+       - response example: {
+                               "rules": [
+                                   {
+                                       "blue": 4,
+                                       "id": "31b8ebd2-fb2b-418f-9d33-aaab4f28215e",
+                                       "nb_player": 7,
+                                       "q1": 2,
+                                       "q2": 3,
+                                       "q3": 3,
+                                       "q4": 4,
+                                       "q5": 4,
+                                       "red": 3
+                                   },
+                                   {
+                                       ...
+                                   },
+                                   {
+                                       "blue": 6,
+                                       "id": "61d2be22-19ba-4edf-95c1-9407f0ba6062",
+                                       "nb_player": 9,
+                                       "q1": 3,
+                                       "q2": 4,
+                                       "q3": 4,
+                                       "q4": 5,
+                                       "q5": 5,
+                                       "red": 3
+                                   }
+                               ]
+                           }
+  ```  
+  - Start a new game 
+  ```bash
+       - method: PUT
+       - route: /games
+       - payload example: {
+                              "names": [
+                                  "name1",
+                                  "name2",
+                                  "name3",
+                                  "name4",
+                                  "name5"
+                              ],
+                              "roles": [
+                                  "oberon",
+                                  "perceval",
+                                  "morgan"
+                              ]
+                          }
+       - response example: {
+                               "id": "2669a9fe-37c4-4139-ab78-8e3f0d0607d0",
+                               "players": [
+                                   {
+                                       "id": "95763b27-de50-4d39-8ac2-2a7010281788",
+                                       "ind_player": 0,
+                                       "name": "name1",
+                                       "role": "assassin",
+                                       "team": "red"
+                                   },
+                                   {
+                                       ...      
+                                   },
+                                   {
+                                       "id": "83d21d25-f359-4ddc-9048-69ba1e6cf5b5",
+                                       "ind_player": 4,
+                                       "name": "name5",
+                                       "role": "morgan",
+                                       "team": "red"
+                                   }
+                               ]
+                           }
+  ```  
 
 
 
 
-
-Avoir docker-compose d'installer...
-
-***********************************
-*** Pour lancer l'app et la bdd ***
-
-1. Importer l'image docker de la bdd: docker pull rethinkdb
-2. Construire l'image docker de l'app: docker build -t avalon-pkg .
-3. Lancer les containers: docker-compose up -d
-
----> http://localhost/
-
-
-
-****************************
-*** Exemples de requêtes ***
-
-1. Initialiser la bdd (2 tables: "rules" et "games"):
-POST: http://localhost/restart_bdd
-Body: {"bdd1": "rules", "bdd2": "games"}
-
----> {"request": "succeeded"}
-
-
-2. Visualiser une bdd (2 tables: "rules" et "games"):
-GET: http://localhost/view/rules
-GET: http://localhost/view/games
-
----> Affichage de la bdd
 
 
 3. Démarrer une nouvelle partie:
@@ -46,58 +109,6 @@ PUT: http://localhost/new_game
 POST: http://localhost/1b8ad78c-da1d-41c1-8552-d2456ae13823/add_roles
 Body: {"names": ["Chacha", "Romain", "Elsa", "Mathieu", "Flo", "Eglantine", "Richard", "Quentin", "Thomas"],
        "roles": ["Oberon", "Perceval", "Morgan"]}
-
---->
-{
-    "players": [
-        {
-            "color": "BLUE",
-            "name": "Chacha",
-            "role": "Blue"
-        },
-        {
-            "color": "BLUE",
-            "name": "Romain",
-            "role": "Perceval"
-        },
-        {
-            "color": "RED",
-            "name": "Elsa",
-            "role": "Oberon"
-        },
-        {
-            "color": "BLUE",
-            "name": "Mathieu",
-            "role": "Merlin"
-        },
-        {
-            "color": "RED",
-            "name": "Flo",
-            "role": "Morgan"
-        },
-        {
-            "color": "BLUE",
-            "name": "Eglantine",
-            "role": "Blue"
-        },
-        {
-            "color": "BLUE",
-            "name": "Richard",
-            "role": "Blue"
-        },
-        {
-            "color": "RED",
-            "name": "Quentin",
-            "role": "Assassin"
-        },
-        {
-            "color": "BLUE",
-            "name": "Thomas",
-            "role": "Blue"
-        }
-    ]
-}
-
 
 5. Nouveau tour:
 GET: http://localhost/1b8ad78c-da1d-41c1-8552-d2456ae13823/new_turn
