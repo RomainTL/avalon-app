@@ -16,9 +16,6 @@ import rethinkdb as r
 avalon_blueprint = Blueprint('avalon', __name__)
 auth_blueprint = Blueprint('auth', __name__)
 
-host = "rethinkdb"
-port = 28015
-
 users = {"mathieu": generate_password_hash("lebeaugosse"),
          "romain": generate_password_hash("lala")}
 
@@ -31,23 +28,17 @@ users = {"mathieu": generate_password_hash("lebeaugosse"),
 #     return False
 
 
-
-
 def bdd_get_value(table, ident, key):
     """This function finds the key's value in the table"""
 
-    with r.RethinkDB().connect(host=host, port=port) as conn:
-
-        return r.RethinkDB().table(table).get(ident)[key].run(conn)
+    return r.RethinkDB().table(table).get(ident)[key].run()
 
 
 
 def bdd_update_value(table, ident, key, value):
     """This function updates the key's value in the bdd"""
 
-    with r.RethinkDB().connect(host=host, port=port) as conn:
-
-        return r.RethinkDB().table(table).get(ident).update({key: value}).run(conn)
+    return r.RethinkDB().table(table).get(ident).update({key: value}).run()
 
 
 def roles_and_players(dict_names_roles, max_red, max_blue):
@@ -96,8 +87,6 @@ def roles_and_players(dict_names_roles, max_red, max_blue):
     return list_players
 
 
-
-
 @avalon_blueprint.route('/restart_bdd', methods=['PUT'])
 def restart_bdd():
     """
@@ -107,23 +96,22 @@ def restart_bdd():
             - example payload: {"table1": "rules", "table2": "games"}
     """
 
-    with r.RethinkDB().connect(host=host, port=port) as conn:
-        for key in request.json.values():
-            if key in r.RethinkDB().db('test').table_list().run(conn):
-                r.RethinkDB().table_drop(key).run(conn)
+    for key in request.json.values():
+        if key in r.RethinkDB().db('test').table_list().run():
+            r.RethinkDB().table_drop(key).run()
 
-            # initialize table
-            r.RethinkDB().table_create(key).run(conn)
+        # initialize table
+        r.RethinkDB().table_create(key).run()
 
-            # fill rules table
-            if key == "rules":
-                r.RethinkDB().table("rules").insert([
-                    {"nb_player": 5, "blue": 3, "red": 2, "q1": 2, "q2": 3, "q3": 2, "q4": 3, "q5": 3},
-                    {"nb_player": 6, "blue": 4, "red": 2, "q1": 2, "q2": 3, "q3": 4, "q4": 3, "q5": 4},
-                    {"nb_player": 7, "blue": 4, "red": 3, "q1": 2, "q2": 3, "q3": 3, "q4": 4, "q5": 4},
-                    {"nb_player": 8, "blue": 5, "red": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
-                    {"nb_player": 9, "blue": 6, "red": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
-                    {"nb_player": 10, "blue": 6, "red": 4, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5}]).run(conn)
+        # fill rules table
+        if key == "rules":
+            r.RethinkDB().table("rules").insert([
+                {"nb_player": 5, "blue": 3, "red": 2, "q1": 2, "q2": 3, "q3": 2, "q4": 3, "q5": 3},
+                {"nb_player": 6, "blue": 4, "red": 2, "q1": 2, "q2": 3, "q3": 4, "q4": 3, "q5": 4},
+                {"nb_player": 7, "blue": 4, "red": 3, "q1": 2, "q2": 3, "q3": 3, "q4": 4, "q5": 4},
+                {"nb_player": 8, "blue": 5, "red": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
+                {"nb_player": 9, "blue": 6, "red": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
+                {"nb_player": 10, "blue": 6, "red": 4, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5}]).run()
 
     return jsonify({"request": "succeeded"})
 
@@ -137,11 +125,11 @@ def view(table_name):
             - route: /view/rules or /view/games
             - example payload:
     """
+
     response = {table_name: []}
-    with r.RethinkDB().connect(host=host, port=port) as conn:
-        cursor = r.RethinkDB().table(table_name).run(conn)
-        for document in cursor:
-            response[table_name].append(document)
+    cursor = r.RethinkDB().table(table_name).run()
+    for document in cursor:
+        response[table_name].append(document)
 
     return jsonify(response)
 
@@ -156,34 +144,32 @@ def add_roles():
                                 "roles": ["Oberon", "Perceval", "Morgan"]}
     """
 
-    with r.RethinkDB().connect(host=host, port=port) as conn:
-        insert = r.RethinkDB().table("games").insert([
-                    {"players": [],
-                     "rules": {}}]).run(conn)
+    insert = r.RethinkDB().table("games").insert([{"players": [],
+                                                   "rules": {}}]).run()
 
-        id_game = insert["generated_keys"][0]
+    id_game = insert["generated_keys"][0]
 
-        # add rules
-        rules = list(r.RethinkDB().table("rules").filter({"nb_player": len(request.json["names"])}).run(conn))[0]
-        del rules["id"]
-        del rules["nb_player"]
-        bdd_update_value("games", id_game, "rules", rules)
+    # add rules
+    rules = list(r.RethinkDB().table("rules").filter({"nb_player": len(request.json["names"])}).run())[0]
+    del rules["id"]
+    del rules["nb_player"]
+    bdd_update_value("games", id_game, "rules", rules)
 
-        # add players
-        players = roles_and_players(request.json, rules["red"], rules["blue"])
-        list_id_player = []
-        for player in players:
-            insert = r.RethinkDB().table("players").insert(player).run(conn)
-            list_id_player.append(insert["generated_keys"][0])
+    # add players
+    players = roles_and_players(request.json, rules["red"], rules["blue"])
+    list_id_player = []
+    for player in players:
+        insert = r.RethinkDB().table("players").insert(player).run()
+        list_id_player.append(insert["generated_keys"][0])
 
-        bdd_update_value("games", id_game, "current_player", choice(range(len(request.json["names"]))))
-        bdd_update_value("games", id_game, "current_turn", 1)
-        bdd_update_value("games", id_game, "current_echec", 0)
-        bdd_update_value("games", id_game, "players", list_id_player)
+    bdd_update_value("games", id_game, "current_player", choice(range(len(request.json["names"]))))
+    bdd_update_value("games", id_game, "current_turn", 1)
+    bdd_update_value("games", id_game, "current_echec", 0)
+    bdd_update_value("games", id_game, "players", list_id_player)
 
-        list_players = []
-        for id_player in list_id_player:
-            list_players.append(list(r.RethinkDB().table("players").get_all(id_player).run(conn))[0])
+    list_players = []
+    for id_player in list_id_player:
+        list_players.append(list(r.RethinkDB().table("players").get_all(id_player).run())[0])
 
 
     return jsonify({"players": list_players, "id": id_game})
@@ -214,7 +200,7 @@ def add_roles():
 def get(ident, table, key):
     """This function finds the key's value depending of the table in the bdd"""
 
-    return r.RethinkDB().table(table).get(ident)[key].run(conn)
+    return r.RethinkDB().table(table).get(ident)[key].run()
 
 
 
@@ -428,10 +414,9 @@ def create_mp3(list_roles):
 @avalon_blueprint.route('/<game_id>/mp3', methods=['GET'])
 def post_mp3(game_id):
     list_players_id = bdd_get_value("games", game_id, "players")
-    with r.RethinkDB().connect(host=host, port=port) as conn:
-        list_roles = []
-        for player_id in list_players_id:
-            list_roles.append(list(r.RethinkDB().table("players").filter({"id": player_id}).run(conn))[0]["role"])
+    list_roles = []
+    for player_id in list_players_id:
+        list_roles.append(list(r.RethinkDB().table("players").filter({"id": player_id}).run())[0]["role"])
 
     create_mp3(list_roles)
     # mp3_file = create_mp3(list_roles)

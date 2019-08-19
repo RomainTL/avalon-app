@@ -13,10 +13,15 @@ from pylib import avalon_blueprint
 
 
 app = Flask(__name__)
-# CORS(app)
+CORS(app)
 
 auth = HTTPBasicAuth()
 
+@app.before_first_request
+def before_first_request_func():
+    import rethinkdb as r
+    r.RethinkDB().connect("rethinkdb", 28015).repl()
+    
 app.register_blueprint(avalon_blueprint)
 
 
