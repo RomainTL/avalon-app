@@ -98,13 +98,16 @@ def add_roles():
     insert = r.RethinkDB().table("games").insert([{"players": [],
                                                    "rules": {}}]).run()
 
-    id_game = insert["generated_keys"][0]
+    game_id = insert["generated_keys"][0]
 
     # add rules
     rules = list(r.RethinkDB().table("rules").filter({"nb_player": len(request.json["names"])}).run())[0]
     del rules["id"]
     del rules["nb_player"]
-    bdd_update_value("games", id_game, "rules", rules)
+    bdd_update_value("games", game_id, "rules", rules)
+    bdd_update_value("games", game_id, "nb_player_to_send", {key: val for key, val in rules.items() if key[:5] == "quest"})
+    bdd_update_value("games", game_id, "nb_echec_to_fail", {key: val for key, val in rules.items() if key[:5] == "echec"})
+    bdd_update_value("games", game_id, "quest_result", ["", "", "", "", ""])
 
     # add players
     players = roles_and_players(request.json, rules["red"], rules["blue"])
@@ -114,23 +117,24 @@ def add_roles():
         list_id_player.append(insert["generated_keys"][0])
 
     ind = choice(range(len(request.json["names"])))
-    bdd_update_value("games", id_game, "current_ind_player", ind)
+    bdd_update_value("games", game_id, "current_ind_player", ind)
 
     current_id_player = list(r.RethinkDB().table("players").filter({"ind_player": ind}).run())[0]["id"]
-    bdd_update_value("games", id_game, "current_id_player", current_id_player)
+    bdd_update_value("games", game_id, "current_id_player", current_id_player)
 
     current_name_player = list(r.RethinkDB().table("players").filter({"ind_player": ind}).run())[0]["name"]
-    bdd_update_value("games", id_game, "current_name_player", current_name_player)
+    bdd_update_value("games", game_id, "current_name_player", current_name_player)
 
-    bdd_update_value("games", id_game, "current_quest", 1)
-    bdd_update_value("games", id_game, "nb_mission_unsend", 0)
-    bdd_update_value("games", id_game, "players", list_id_player)
+    bdd_update_value("games", game_id, "current_quest", 1)
+    bdd_update_value("games", game_id, "nb_mission_unsend", 0)
+    bdd_update_value("games", game_id, "players", list_id_player)
+
 
     list_players = []
     for id_player in list_id_player:
         list_players.append(list(r.RethinkDB().table("players").get_all(id_player).run())[0])
 
-    return jsonify({"players": list_players, "id": id_game})
+    return jsonify({"players": list_players, "id": game_id})
 
 
 @avalon_blueprint.route('/<game_id>/mp3', methods=['GET'])
@@ -146,8 +150,67 @@ def post_mp3(game_id):
     return send_file("resources/roles.mp3", attachment_filename='roles.mp3', mimetype='audio/mpeg')
 
 
-@avalon_blueprint.route('/<game_id>/new_quest', methods=['POST'])
+@avalon_blueprint.route('/<game_id>/new_quest', methods=['GET'])
 def new_quest(game_id):
+
+    bdd_update_value("games", game_id, "nb_mission_unsend", 0)
+
+    dict_quest = {"nb_mission_unsend": 0,
+                  "current_id_player": bdd_get_value("games", game_id, "current_id_player"),
+                  "current_ind_player": bdd_get_value("games", game_id, "current_ind_player"),
+                  "current_name_player": bdd_get_value("games", game_id, "current_name_player"),
+                  "current_quest": bdd_get_value("games", game_id, "current_quest"),
+                  "nb_player_to_send": bdd_get_value("games", game_id, "nb_player_to_send"),
+                  "nb_echec_to_fail": bdd_get_value("games", game_id, "nb_echec_to_fail")}
+
+    return jsonify(dict_quest)
+
+
+@avalon_blueprint.route('/<game_id>/new_mission', methods=['POST'])
+def new_mission(game_id):
+
+    # check current_quest
+    # check nb_mission_unsend
+    # check nb_player in payload == questi
+
+    nb_player = len(bdd_get_value("games", game_id, "players"))
+    ind = (bdd_get_value("games", game_id, "current_ind_player") + 1) % nb_player
+    bdd_update_value("games", game_id, "current_ind_player", ind)
+
+    current_id_player = list(r.RethinkDB().table("players").filter({"ind_player": ind}).run())[0]["id"]
+    bdd_update_value("games", game_id, "current_id_player", current_id_player)
+
+    current_name_player = list(r.RethinkDB().table("players").filter({"ind_player": ind}).run())[0]["name"]
+    bdd_update_value("games", game_id, "current_name_player", current_name_player)
+
+    nb_mission_unsend = bdd_get_value("games", game_id, "nb_mission_unsend") + 1
+    bdd_update_value("games", game_id, "nb_mission_unsend", nb_mission_unsend)
+
+    if request.json["status"] == "unsend":
+        rules = bdd_get_value("games", game_id, "rules")
+        current_ind_player = bdd_get_value("games", game_id, "current_ind_player")
+        dict_quest = {"nb_mission_unsend": nb_mission_unsend,
+                      "current_id_player": current_id_player,
+                      "current_ind_player": ind,
+                      "current_name_player": current_name_player,
+                      "current_quest": bdd_get_value("games", game_id, "current_quest"),
+                      "nb_player_to_send": bdd_get_value("games", game_id, "nb_player_to_send"),
+                      "nb_echec_to_fail": bdd_get_value("games", game_id, "nb_echec_to_fail")}
+
+    else:
+        rules = bdd_get_value("games", game_id, "rules")
+        current_ind_player = bdd_get_value("games", game_id, "current_ind_player")
+        dict_quest = {"nb_mission_unsend": "lala",
+                      "current_id_player": bdd_get_value("games", game_id, "current_id_player"),
+                      "current_ind_player": bdd_get_value("games", game_id, "current_ind_player"),
+                      "current_name_player": bdd_get_value("games", game_id, "current_name_player"),
+                      "current_quest": bdd_get_value("games", game_id, "current_quest"),
+                      "nb_player_to_send": bdd_get_value("games", game_id, "nb_player_to_send"),
+                      "nb_echec_to_fail": bdd_get_value("games", game_id, "nb_echec_to_fail")}
+
+
+    return jsonify(dict_quest)
+
 
     rules = bdd_get_value("games", game_id, "rules")
     current_ind_player = bdd_get_value("games", game_id, "current_ind_player")
