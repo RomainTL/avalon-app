@@ -21,18 +21,159 @@ users = {"mathieu": generate_password_hash("lebeaugosse"),
 
 
 
-# @auth_blueprint.verify_password
-# def verify_password(username, password):
-#     if username in users:
-#         return check_password_hash(users.get(username), password)
-#     return False
+
+@avalon_blueprint.before_request
+def before_first_request_func():
+    r.RethinkDB().connect("rethinkdb", 28015).repl()
+
+
+@avalon_blueprint.route('/restart_bdd', methods=['PUT'])
+def restart_bdd():
+    """
+    This function deletes all tables in the post request and initializes them
+        - method: PUT
+            - route: /restart_bdd
+            - example payload: {"table1": "rules", "table2": "games"}
+    """
+
+    for key in request.json.values():
+        if key in r.RethinkDB().db('test').table_list().run():
+            r.RethinkDB().table_drop(key).run()
+
+        # initialize table
+        r.RethinkDB().table_create(key).run()
+
+        # fill rules table
+        if key == "rules":
+            r.RethinkDB().table("rules").insert([
+                {"nb_player": 5, "blue": 3, "red": 2,
+                 "quest1": 2, "quest2": 3, "quest3": 2, "quest4": 3, "quest5": 3,
+                 "echec1": 1, "echec2": 1, "echec3": 1, "echec4": 1, "echec5": 1},
+                {"nb_player": 6, "blue": 4, "red": 2,
+                 "quest1": 2, "quest2": 3, "quest3": 4, "quest4": 3, "quest5": 4,
+                 "echec1": 1, "echec2": 1, "echec3": 1, "echec4": 1, "echec5": 1},
+                {"nb_player": 7, "blue": 4, "red": 3,
+                 "quest1": 2, "quest2": 3, "quest3": 3, "quest4": 4, "quest5": 4,
+                 "echec1": 1, "echec2": 1, "echec3": 1, "echec4": 2, "echec5": 1},
+                {"nb_player": 8, "blue": 5, "red": 3,
+                 "quest1": 3, "quest2": 4, "quest3": 4, "quest4": 5, "quest5": 5,
+                 "echec1": 1, "echec2": 1, "echec3": 1, "echec4": 2, "echec5": 1},
+                {"nb_player": 9, "blue": 6, "red": 3,
+                 "quest1": 3, "quest2": 4, "quest3": 4, "quest4": 5, "quest5": 5,
+                 "echec1": 1, "echec2": 1, "echec3": 1, "echec4": 2, "echec5": 1},
+                {"nb_player": 10, "blue": 6, "red": 4,
+                 "quest1": 3, "quest2": 4, "quest3": 4, "quest4": 5, "quest5": 5,
+                 "echec1": 1, "echec2": 1, "echec3": 1, "echec4": 2, "echec5": 1}]).run()
+
+    return jsonify({"request": "succeeded"})
+
+
+@avalon_blueprint.route('/view/<table_name>', methods=['GET'])
+def view(table_name):
+    """
+    This function gives a table depending on the input table_name
+        - method: GET
+            - route: /view/rules or /view/games
+            - example payload:
+    """
+
+    response = {table_name: []}
+    cursor = r.RethinkDB().table(table_name).run()
+    for document in cursor:
+        response[table_name].append(document)
+
+    return jsonify(response)
+
+
+@avalon_blueprint.route('/games', methods=['PUT'])
+def add_roles():
+    """This function adds rules and roles to players randomly
+        - method: PUT
+            - route: /games
+            - example payload: {"names": ["Chacha", "Romain", "Elsa", "Mathieu", "Flo",
+                                          "Eglantine", "Richard", "Quentin", "Thomas"],
+                                "roles": ["Oberon", "Perceval", "Morgan"]}
+    """
+
+    insert = r.RethinkDB().table("games").insert([{"players": [],
+                                                   "rules": {}}]).run()
+
+    id_game = insert["generated_keys"][0]
+
+    # add rules
+    rules = list(r.RethinkDB().table("rules").filter({"nb_player": len(request.json["names"])}).run())[0]
+    del rules["id"]
+    del rules["nb_player"]
+    bdd_update_value("games", id_game, "rules", rules)
+
+    # add players
+    players = roles_and_players(request.json, rules["red"], rules["blue"])
+    list_id_player = []
+    for player in players:
+        insert = r.RethinkDB().table("players").insert(player).run()
+        list_id_player.append(insert["generated_keys"][0])
+
+    ind = choice(range(len(request.json["names"])))
+    bdd_update_value("games", id_game, "current_ind_player", ind)
+
+    current_id_player = list(r.RethinkDB().table("players").filter({"ind_player": ind}).run())[0]["id"]
+    bdd_update_value("games", id_game, "current_id_player", current_id_player)
+
+    current_name_player = list(r.RethinkDB().table("players").filter({"ind_player": ind}).run())[0]["name"]
+    bdd_update_value("games", id_game, "current_name_player", current_name_player)
+
+    bdd_update_value("games", id_game, "current_quest", 1)
+    bdd_update_value("games", id_game, "nb_mission_unsend", 0)
+    bdd_update_value("games", id_game, "players", list_id_player)
+
+    list_players = []
+    for id_player in list_id_player:
+        list_players.append(list(r.RethinkDB().table("players").get_all(id_player).run())[0])
+
+    return jsonify({"players": list_players, "id": id_game})
+
+
+@avalon_blueprint.route('/<game_id>/mp3', methods=['GET'])
+def post_mp3(game_id):
+
+    list_players_id = bdd_get_value("games", game_id, "players")
+    list_roles = []
+    for player_id in list_players_id:
+        list_roles.append(list(r.RethinkDB().table("players").filter({"id": player_id}).run())[0]["role"])
+
+    create_mp3(list_roles)
+
+    return send_file("resources/roles.mp3", attachment_filename='roles.mp3', mimetype='audio/mpeg')
+
+
+@avalon_blueprint.route('/<game_id>/new_quest', methods=['POST'])
+def new_quest(game_id):
+
+    rules = bdd_get_value("games", game_id, "rules")
+    current_ind_player = bdd_get_value("games", game_id, "current_ind_player")
+    dict_quest = {"nb_mission_unsend": 0,
+                  "current_id_player": bdd_get_value("games", game_id, "current_id_player"),
+                  "current_ind_player": bdd_get_value("games", game_id, "current_ind_player"),
+                  "current_name_player": bdd_get_value("games", game_id, "current_name_player"),
+                  "current_quest": bdd_get_value("games", game_id, "current_quest"),
+                  "nb_player_to_send": {key: val for key, val in rules.items() if key[:5] == "quest"},
+                  "nb_echec_to_fail": {key: val for key, val in rules.items() if key[:5] == "echec"}}
+
+    return jsonify(dict_quest)
+
+
+
+
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 
 
 def bdd_get_value(table, ident, key):
     """This function finds the key's value in the table"""
 
     return r.RethinkDB().table(table).get(ident)[key].run()
-
 
 
 def bdd_update_value(table, ident, key, value):
@@ -87,98 +228,39 @@ def roles_and_players(dict_names_roles, max_red, max_blue):
     return list_players
 
 
-@avalon_blueprint.route('/restart_bdd', methods=['PUT'])
-def restart_bdd():
-    """
-    This function deletes all tables in the post request and initializes them
-        - method: PUT
-            - route: /restart_bdd
-            - example payload: {"table1": "rules", "table2": "games"}
-    """
+def create_mp3(list_roles):
+    """Create mp3 file depending on roles in the game"""
 
-    for key in request.json.values():
-        if key in r.RethinkDB().db('test').table_list().run():
-            r.RethinkDB().table_drop(key).run()
+    list_to_merge = ["init.mp3", "serv_mord.mp3"]
+    if "oberon" in list_roles:
+        list_to_merge.append("oberon.mp3")
+    list_to_merge.append("red_identi.mp3")
 
-        # initialize table
-        r.RethinkDB().table_create(key).run()
+    if "morgan" in list_roles and "perceval" in list_roles:
+        list_to_merge.append("add_per_mor.mp3")
 
-        # fill rules table
-        if key == "rules":
-            r.RethinkDB().table("rules").insert([
-                {"nb_player": 5, "blue": 3, "red": 2, "q1": 2, "q2": 3, "q3": 2, "q4": 3, "q5": 3},
-                {"nb_player": 6, "blue": 4, "red": 2, "q1": 2, "q2": 3, "q3": 4, "q4": 3, "q5": 4},
-                {"nb_player": 7, "blue": 4, "red": 3, "q1": 2, "q2": 3, "q3": 3, "q4": 4, "q5": 4},
-                {"nb_player": 8, "blue": 5, "red": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
-                {"nb_player": 9, "blue": 6, "red": 3, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5},
-                {"nb_player": 10, "blue": 6, "red": 4, "q1": 3, "q2": 4, "q3": 4, "q4": 5, "q5": 5}]).run()
+    list_to_merge.append("serv_mord.mp3")
+    if "mordred" in list_roles:
+        list_to_merge.append("mordred.mp3")
+    list_to_merge.extend(["merlin_identi.mp3", "end.mp3"])
 
-    return jsonify({"request": "succeeded"})
+    str_command = "cat "
+    for i in range(len(list_to_merge)):
+        str_command += "resources/"+list_to_merge[i]+" "
+    str_command += " > resources/roles.mp3"
+    os.system(str_command)
+    print("\n\n----->", str_command)
+    mp3_file = open('./resources/roles.mp3', 'rb')
+    print(mp3_file)
+    #os.system("rm -f /resources/roles.mp3")
 
-
-# @auth_blueprint.login_required
-@avalon_blueprint.route('/view/<table_name>', methods=['GET'])
-def view(table_name):
-    """
-    This function gives a table depending on the input table_name
-        - method: GET
-            - route: /view/rules or /view/games
-            - example payload:
-    """
-
-    response = {table_name: []}
-    cursor = r.RethinkDB().table(table_name).run()
-    for document in cursor:
-        response[table_name].append(document)
-
-    return jsonify(response)
-
-
-@avalon_blueprint.route('/games', methods=['PUT'])
-def add_roles():
-    """This function adds rules and roles to players randomly
-        - method: PUT
-            - route: /games
-            - example payload: {"names": ["Chacha", "Romain", "Elsa", "Mathieu", "Flo",
-                                          "Eglantine", "Richard", "Quentin", "Thomas"],
-                                "roles": ["Oberon", "Perceval", "Morgan"]}
-    """
-
-    insert = r.RethinkDB().table("games").insert([{"players": [],
-                                                   "rules": {}}]).run()
-
-    id_game = insert["generated_keys"][0]
-
-    # add rules
-    rules = list(r.RethinkDB().table("rules").filter({"nb_player": len(request.json["names"])}).run())[0]
-    del rules["id"]
-    del rules["nb_player"]
-    bdd_update_value("games", id_game, "rules", rules)
-
-    # add players
-    players = roles_and_players(request.json, rules["red"], rules["blue"])
-    list_id_player = []
-    for player in players:
-        insert = r.RethinkDB().table("players").insert(player).run()
-        list_id_player.append(insert["generated_keys"][0])
-
-    bdd_update_value("games", id_game, "current_player", choice(range(len(request.json["names"]))))
-    bdd_update_value("games", id_game, "current_turn", 1)
-    bdd_update_value("games", id_game, "current_echec", 0)
-    bdd_update_value("games", id_game, "players", list_id_player)
-
-    list_players = []
-    for id_player in list_id_player:
-        list_players.append(list(r.RethinkDB().table("players").get_all(id_player).run())[0])
-
-
-    return jsonify({"players": list_players, "id": id_game})
+    return mp3_file
 
 
 
-
-
-
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 
 
 
@@ -195,21 +277,26 @@ def add_roles():
 
 
 
+# @auth_blueprint.login_required
+# @avalon_blueprint.route('/<ident>/get/<table>/<key>', methods=['POST'])
+# def get(ident, table, key):
+#     """This function finds the key's value depending of the table in the bdd"""
 
-@avalon_blueprint.route('/<ident>/get/<table>/<key>', methods=['POST'])
-def get(ident, table, key):
-    """This function finds the key's value depending of the table in the bdd"""
-
-    return r.RethinkDB().table(table).get(ident)[key].run()
-
-
-
-
+#     return r.RethinkDB().table(table).get(ident)[key].run()
 
 
 
 #######################################################################################################################
 #######################################################################################################################
+
+
+# @auth_blueprint.verify_password
+# def verify_password(username, password):
+#     if username in users:
+#         return check_password_hash(users.get(username), password)
+#     return False
+
+
 
 # @avalon_blueprint.route('/<ident>/new_turn', methods=['GET'])
 # def new_turn(ident):
@@ -346,33 +433,7 @@ def get(ident, table, key):
 
 
 
-def create_mp3(list_roles):
-    """Create mp3 file depending on roles in the game"""
 
-    list_to_merge = ["init.mp3", "serv_mord.mp3"]
-    if "oberon" in list_roles:
-        list_to_merge.append("oberon.mp3")
-    list_to_merge.append("red_identi.mp3")
-
-    if "morgan" in list_roles and "perceval" in list_roles:
-        list_to_merge.append("add_per_mor.mp3")
-
-    list_to_merge.append("serv_mord.mp3")
-    if "mordred" in list_roles:
-        list_to_merge.append("mordred.mp3")
-    list_to_merge.extend(["merlin_identi.mp3", "end.mp3"])
-
-    str_command = "cat "
-    for i in range(len(list_to_merge)):
-        str_command += "resources/"+list_to_merge[i]+" "
-    str_command += " > resources/roles.mp3"
-    os.system(str_command)
-    print("\n\n----->", str_command)
-    mp3_file = open('./resources/roles.mp3', 'rb')
-    print(mp3_file)
-    #os.system("rm -f /resources/roles.mp3")
-
-    return mp3_file
 
 # def create_mp3(list_roles):
 #     """Create mp3 file depending on roles in the game"""
@@ -411,22 +472,12 @@ def create_mp3(list_roles):
 #     return Response(generate(), mimetype="audio/mpeg") # mimetype="audio/x-mp3", mimetype="audio/mp3"
 
 
-@avalon_blueprint.route('/<game_id>/mp3', methods=['GET'])
-def post_mp3(game_id):
-    list_players_id = bdd_get_value("games", game_id, "players")
-    list_roles = []
-    for player_id in list_players_id:
-        list_roles.append(list(r.RethinkDB().table("players").filter({"id": player_id}).run())[0]["role"])
 
-    create_mp3(list_roles)
-    # mp3_file = create_mp3(list_roles)
-    # print(mp3_file)
-    # response = make_response(mp3_file)
-    # response.headers.set('Content-Type', 'audio/mpeg')
-    # response.headers.set('Content-Disposition', 'attachment', filename='%s.jpg' % pid)
-    return send_file("resources/roles.mp3", attachment_filename='roles.mp3', mimetype='audio/mpeg')
-
-
+# mp3_file = create_mp3(list_roles)
+# print(mp3_file)
+# response = make_response(mp3_file)
+# response.headers.set('Content-Type', 'audio/mpeg')
+# response.headers.set('Content-Disposition', 'attachment', filename='%s.jpg' % pid)
 
 
 
