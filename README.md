@@ -20,34 +20,44 @@
   - Visualize databases (3 tables)
   ```bash
        - method: GET
-       - route: /view/<table_name> (table_name is rules or games or players)
+       - route: /view/<table_name> (table_name is rules, games and players)
        - payload example:
        - response example: {
                                "rules": [
                                    {
-                                       "blue": 4,
-                                       "id": "31b8ebd2-fb2b-418f-9d33-aaab4f28215e",
-                                       "nb_player": 7,
-                                       "q1": 2,
-                                       "q2": 3,
-                                       "q3": 3,
-                                       "q4": 4,
-                                       "q5": 4,
-                                       "red": 3
+                                       "blue": 3,
+                                       "echec1": 1,
+                                       "echec2": 1,
+                                       "echec3": 1,
+                                       "echec4": 1,
+                                       "echec5": 1,
+                                       "id": "5fb71032-7dad-4e48-bb14-7f4fb7c262fa",
+                                       "nb_player": 5,
+                                       "quest1": 2,
+                                       "quest2": 3,
+                                       "quest3": 2,
+                                       "quest4": 3,
+                                       "quest5": 3,
+                                       "red": 2
                                    },
                                    {
                                        ...
                                    },
                                    {
                                        "blue": 6,
-                                       "id": "61d2be22-19ba-4edf-95c1-9407f0ba6062",
-                                       "nb_player": 9,
-                                       "q1": 3,
-                                       "q2": 4,
-                                       "q3": 4,
-                                       "q4": 5,
-                                       "q5": 5,
-                                       "red": 3
+                                       "echec1": 1,
+                                       "echec2": 1,
+                                       "echec3": 1,
+                                       "echec4": 2,
+                                       "echec5": 1,
+                                       "id": "f9bffa54-dc75-45f2-b2f8-51ad0c4f397f",
+                                       "nb_player": 10,
+                                       "quest1": 3,
+                                       "quest2": 4,
+                                       "quest3": 4,
+                                       "quest4": 5,
+                                       "quest5": 5,
+                                       "red": 4
                                    }
                                ]
                            }
@@ -132,9 +142,15 @@
        - method: POST
        - route: /<game_id>/mission
        - payload example1: {
-                               "status": "send"
+                               "status": "unsend"
                            }
        - response example1: {
+                                "request": "succeeded"
+                            }
+       - payload example2: {
+                               "status": "send"
+                           }
+       - response example2: {
                                 "players": [
                                     {
                                         "id": "147ff90f-9988-45f3-bf39-c98d9fc48e3a",
@@ -150,12 +166,6 @@
                                         "name": "name5"
                                     }
                                 ]
-                            }
-       - payload example2: {
-                               "status": "unsend"
-                           }
-       - response example2: {
-                                "request": "succeeded"
                             }
   ```
   - Send new vote
