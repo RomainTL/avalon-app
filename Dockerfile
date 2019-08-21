@@ -24,10 +24,10 @@ RUN mkdir Avalon
 RUN mkdir Avalon/resources
 
 COPY resources /Avalon/resources
-COPY app.py /Avalon
-COPY pylib.py /Avalon
 COPY requirements.txt /Avalon
 RUN /root/miniconda3/bin/pip install -r Avalon/requirements.txt
+COPY app.py /Avalon
+COPY pylib.py /Avalon
 
 WORKDIR Avalon
 CMD ["sh", "-c", "/root/miniconda3/bin/python app.py"]

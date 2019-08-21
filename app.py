@@ -11,6 +11,9 @@ from flask_httpauth import HTTPBasicAuth
 
 from pylib import avalon_blueprint
 
+import logging
+from logging.handlers import RotatingFileHandler
+
 
 app = Flask(__name__)
 CORS(app)
@@ -18,7 +21,6 @@ CORS(app)
 auth = HTTPBasicAuth()
 
 app.register_blueprint(avalon_blueprint)
-
 
 if __name__ == '__main__':
 
@@ -32,6 +34,10 @@ if __name__ == '__main__':
 
     # parse arguments
     ARGS = PARSER.parse_args()
+
+    handler = RotatingFileHandler('foo.log', maxBytes=10000, backupCount=1)
+    handler.setLevel(logging.INFO)
+    app.logger.addHandler(handler)
 
     # Start the RESTful web service used in Avalon
     app.run(host=ARGS.host, port=ARGS.port, debug=True)

@@ -6,7 +6,7 @@
 import os
 from random import shuffle, choice
 
-from flask import Blueprint, Flask, jsonify, make_response, request, abort, send_file, Response, render_template
+from flask import Blueprint, Flask, jsonify, make_response, request, abort, send_file, Response, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # from app import auth
@@ -35,6 +35,9 @@ def restart_bdd():
             - route: /restart_bdd
             - example payload: {"table1": "rules", "table2": "games"}
     """
+    # current_app.logger.warning('A warning occurred (%d apples)', 42)
+    # current_app.logger.error('An error occurred')
+    # current_app.logger.info('Info')
 
     for key in request.json.values():
         if key in r.RethinkDB().db('test').table_list().run():
@@ -164,29 +167,12 @@ def board(game_id):
     return jsonify(dict_quest)
 
 
+@avalon_blueprint.route('/<game_id>/mission', methods=['POST'])
+def mission(game_id):
 
-@avalon_blueprint.route('/<game_id>/new_quest', methods=['GET'])
-def new_quest(game_id):
-
-    bdd_update_value("games", game_id, "nb_mission_unsend", 0)
-
-    dict_quest = {"nb_mission_unsend": 0,
-                  "current_id_player": bdd_get_value("games", game_id, "current_id_player"),
-                  "current_ind_player": bdd_get_value("games", game_id, "current_ind_player"),
-                  "current_name_player": bdd_get_value("games", game_id, "current_name_player"),
-                  "current_quest": bdd_get_value("games", game_id, "current_quest"),
-                  "nb_player_to_send": bdd_get_value("games", game_id, "nb_player_to_send"),
-                  "nb_echec_to_fail": bdd_get_value("games", game_id, "nb_echec_to_fail")}
-
-    return jsonify(dict_quest)
-
-
-@avalon_blueprint.route('/<game_id>/new_mission', methods=['POST'])
-def new_mission(game_id):
-
-    # check current_quest
-    # check nb_mission_unsend
-    # check nb_player in payload == questi
+    # ----> check current_quest
+    # ----> check nb_mission_unsend
+    # ----> check nb_player in payload == questi
 
     # update ind player
     nb_player = len(bdd_get_value("games", game_id, "players"))
@@ -203,7 +189,7 @@ def new_mission(game_id):
     bdd_update_value("games", game_id, "current_name_player", current_name_player)
 
     if request.json["status"] == "unsend":
-        
+
         # update nb_mission_unsend
         nb_mission_unsend = bdd_get_value("games", game_id, "nb_mission_unsend") + 1
         bdd_update_value("games", game_id, "nb_mission_unsend", nb_mission_unsend)
@@ -220,20 +206,40 @@ def new_mission(game_id):
         current_quest = bdd_get_value("games", game_id, "current_ind_player")
         bdd_update_value("games", game_id, "current_quest", current_quest + 1)
 
-        list_all_players = bdd_get_value("games", game_id, "players")
-        print(list_all_players)
+        # find players
         list_players = []
-        for player in list_all_players:
-            print(player)
-            if player["id"] != current_ind_player:
-                list_players.append({"id": player["id"], "ind_player": player["ind_player"], "name": player["name"]})
+        for id_player in bdd_get_value("games", game_id, "players"):
+            list_players.append({"id": bdd_get_value("players", id_player, "id"),
+                                 "ind_player": bdd_get_value("players", id_player, "ind_player"),
+                                 "name": bdd_get_value("players", id_player, "name")})
 
         return jsonify({"players": list_players})
 
     return jsonify({"request": "unsucceeded",
-                    "message": '{"status" is not "send" or "unsend"'})
+                    "message": "{'status' is not 'send' or 'unsend'"})
 
 
+@avalon_blueprint.route('/<game_id>/vote', methods=['POST'])
+def vote(game_id):
+
+    vote = request.json["vote"]
+    shuffle(vote)
+
+    dict_nb_echec_to_fail = bdd_get_value("games", game_id, "nb_echec_to_fail")
+    nb_echec_to_fail = dict_nb_echec_to_fail["echec"+str(bdd_get_value("games", game_id, "current_quest"))]
+
+    result = "SUCCESS"
+    if vote.count("FAIL") >= nb_echec_to_fail:
+        result = "FAIL"
+
+    # update quest_result
+    quest_result = bdd_get_value("games", game_id, "quest_result")
+    quest_result[bdd_get_value("games", game_id, "current_quest") - 1] = result
+    bdd_update_value("games", game_id, "quest_result", quest_result)
+
+
+    return jsonify({"vote": vote,
+                    "result": result})
 
 
 
